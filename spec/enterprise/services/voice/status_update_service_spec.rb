@@ -27,7 +27,7 @@ RSpec.describe Voice::StatusUpdateService do
       content_attributes: { data: { call_sid: call_sid, status: 'ringing' } }
     )
   end
-  let(:channel) { create(:channel_voice, account: account, phone_number: '+15551230002') }
+  let(:channel) { create(:channel_twilio_sms, :with_voice, account: account, phone_number: '+15551230002') }
   let(:inbox) { channel.inbox }
   let(:from_number) { '+15550002222' }
   let(:call_sid) { 'CATESTSTATUS123' }
@@ -53,6 +53,23 @@ RSpec.describe Voice::StatusUpdateService do
 
     expect(conversation.additional_attributes['call_status']).to eq('completed')
     expect(message.content_attributes.dig('data', 'status')).to eq('completed')
+  end
+
+  it 'normalizes busy to no-answer' do
+    conversation
+    message
+
+    described_class.new(
+      account: account,
+      call_sid: call_sid,
+      call_status: 'busy'
+    ).perform
+
+    conversation.reload
+    message.reload
+
+    expect(conversation.additional_attributes['call_status']).to eq('no-answer')
+    expect(message.content_attributes.dig('data', 'status')).to eq('no-answer')
   end
 
   it 'no-ops when conversation not found' do
